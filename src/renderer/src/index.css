@@ -534,7 +534,7 @@ body {
 /* ══════════════════════════════════════════════════
    HISTORY
 ══════════════════════════════════════════════════ */
-.history { }
+/*.history { }*/
 
 .date-select {
   background: var(--card);
@@ -943,6 +943,15 @@ body {
   color: var(--text);
   font-weight: 500;
 }
+
+.session-stats .stat-col {
+  flex: 1 1 150px;
+  padding: 0 22px;
+}
+
+/* Even out edge padding so wrapped rows align cleanly */
+.session-stats .stat-col:first-child { padding-left: 22px; }
+.session-stats .stat-col:last-child  { padding-right: 22px; }
 
 /* ══════════════════════════════════════════════════
    THIN RULE — reusable divider
