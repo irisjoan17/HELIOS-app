@@ -26,6 +26,17 @@ function createWindow(): void {
 
   win.once('ready-to-show', () => win.show())
 
+  win.webContents.on('select-bluetooth-device', (event, deviceList, callback) => {
+    event.preventDefault()
+    // The requestDevice filter already limits this to our patch's service UUID,
+    // so just pick the first device that shows up.
+    console.log('BLE candidates:', deviceList.map(d => d.deviceName || '(no name)'))
+    if (deviceList.length > 0) {
+      callback(deviceList[0].deviceId)
+    }
+    // If empty, don't call back yet — this event fires again as devices appear.
+  })
+
   if (process.env['ELECTRON_RENDERER_URL']) {
     win.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
@@ -37,7 +48,8 @@ ipcMain.handle('save-readings', (_event, readings) => {
   ensureDataDir()
   const byDate: Record<string, unknown[]> = {}
   for (const r of readings) {
-    const date = new Date((r as { timestamp: number }).timestamp).toISOString().split('T')[0]
+    const d = new Date((r as { timestamp: number }).timestamp)
+    const date = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     if (!byDate[date]) byDate[date] = []
     byDate[date].push(r)
   }

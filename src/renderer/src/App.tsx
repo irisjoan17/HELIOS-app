@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Dashboard from './components/Dashboard'
 import History from './components/History'
 import ExportPanel from './components/ExportPanel'
 import Splash from './components/Splash'
 import BLEStatus from './components/BLEStatus'
-import type { NavTab } from './types/sensor'
-import { bleService } from './services/mockBLE'
+import type { NavTab, SensorReading } from './types/sensor'
+import { bleService } from './services/realBLE'
 import { bufferReading, flush } from './services/store'
 
 const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
@@ -14,18 +14,31 @@ const NAV_ITEMS: { id: NavTab; label: string; icon: string }[] = [
   { id: 'export', label: 'Export', icon: '◆' },
 ]
 
+// Patch streams ~20/s; save to disk at most once per second.
+const SAVE_INTERVAL_MS = 1000
+
 export default function App() {
   const [tab, setTab] = useState<NavTab>('dashboard')
   const [showSplash, setShowSplash] = useState(true)
+  const [connected, setConnected] = useState(false)
+  const lastSave = useRef(0)
 
   useEffect(() => {
-    bleService.start()
-    const unsub = bleService.onReading(bufferReading)
-    const onUnload = () => flush()
+    const unsubReading = bleService.onReading((r: SensorReading) => {
+      const now = Date.now()
+      if (now - lastSave.current >= SAVE_INTERVAL_MS) {
+        lastSave.current = now
+        bufferReading(r)
+      }
+    })
+    const unsubState = bleService.onConnectionChange(setConnected)
+    const onUnload = (): void => {
+      flush()
+    }
     window.addEventListener('beforeunload', onUnload)
     return () => {
-      unsub()
-      bleService.stop()
+      unsubReading()
+      unsubState()
       window.removeEventListener('beforeunload', onUnload)
       flush()
     }
@@ -44,10 +57,7 @@ export default function App() {
           <ul>
             {NAV_ITEMS.map(({ id, label, icon }) => (
               <li key={id}>
-                <button
-                  className={tab === id ? 'active' : ''}
-                  onClick={() => setTab(id)}
-                >
+                <button className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
                   <span className="nav-icon">{icon}</span>
                   {label}
                 </button>
@@ -56,8 +66,8 @@ export default function App() {
           </ul>
         </nav>
         <div className="sidebar-footer">
-          <span className="status-dot connected" />
-          Mock Patch · Streaming
+          <span className={`status-dot ${connected ? 'connected' : ''}`} />
+          {connected ? 'Patch · Streaming' : 'Patch · Disconnected'}
         </div>
       </aside>
 
